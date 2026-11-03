@@ -131,24 +131,15 @@ PatientID,Timestamp,HeartRate,SystolicBP,DiastolicBP
 | 錯誤狀況 | 原因 | 解決方法 |
 | --- | --- | --- |
 | **`[ERROR] Cannot open vital_signs.csv`**
-
- | 程式找不到檔案。
-
- | 請將 `vital_signs.csv` 移動到跟 `main.c` / `.vcxproj` 同一個資料夾。
-
- |
+| 程式找不到檔案。
+| 請將 `vital_signs.csv` 移動到跟 `main.c` / `.vcxproj` 同一個資料夾。
+|
 | **`HTTP 400 Bad Request`**<br>
-
 <br>(`Resource Patient/xxx not found`) | 伺服器找不到該病患。 | CSV 第一欄不要寫 `P1001` 等未註冊代碼，請改成在伺服器上真實存在的 ID（如 `364734`）。
-
- |
+|
 | **`HTTP 404 Not Found`**
-
- | 瀏覽器網址打錯或少字。
-
- | 檢查網址列是否少複製了數字（例如把 `381209` 漏打成 `38120`）。
-
- |
+| 瀏覽器網址打錯或少字。
+| 檢查網址列是否少複製了數字（例如把 `381209` 漏打成 `38120`）。
+|
 | **畫面噴一堆問號亂碼** | 終端機編碼與回傳文字衝突。 | 本版本程式日誌已全面改為純英文顯示，請直接使用最新版 `main.c` 即可避免亂碼。
-
- |
+|
