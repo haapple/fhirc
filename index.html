@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT on FHIR: 機構/病患管理、CSV 轉譯與醫護端查詢平台</title>
+    <style>
+        :root {
+            --primary: #1976d2;
+            --primary-dark: #0d47a1;
+            --success: #2e7d32;
+            --warning: #ed6c02;
+            --error: #d32f2f;
+            --bg: #f0f2f5;
+            --card: #ffffff;
+            --border: #dcdfe6;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            margin: 0;
+            padding: 24px;
+            background-color: var(--bg);
+            color: #2c3e50;
+        }
+        .container {
+            max-width: 1140px;
+            margin: 0 auto;
+        }
+        header {
+            margin-bottom: 24px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        h1 {
+            margin: 0 0 6px 0;
+            color: var(--primary-dark);
+            font-size: 24px;
+        }
+        p.subtitle {
+            margin: 0;
+            color: #64748b;
+            font-size: 14px;
+        }
+        .card {
+            background: var(--card);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+        }
+        .card h2 {
+            font-size: 16px;
+            margin: 0 0 16px 0;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+        }
+        .form-group {
+            margin-bottom: 12px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #475569;
+        }
+        input[type="text"], input[type="number"], input[type="date"], select, textarea {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary);
+        }
+        textarea {
+            resize: vertical;
+            height: 90px;
+            font-family: monospace;
+        }
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        button:hover { background-color: var(--primary-dark); }
+        button.btn-success { background-color: var(--success); }
+        button.btn-success:hover { background-color: #1b5e20; }
+        button.btn-warning { background-color: var(--warning); }
+        button.btn-warning:hover { background-color: #e65100; }
+        button.btn-danger { background-color: var(--error); }
+        button.btn-danger:hover { background-color: #b71c1c; }
+        button.btn-outline {
+            background-color: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+        }
+        button.btn-outline:hover { background-color: #eff6ff; }
+        button.btn-sm {
+            padding: 4px 10px;
+            font-size: 12px;
+        }
+        button:disabled { background-color: #94a3b8; cursor: not-allowed; }
+        .status-box {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 10px 14px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .edit-panel {
+            background-color: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-radius: 6px;
+            padding: 16px;
+            margin-top: 14px;
+        }
+        .json-viewer {
+            background: #1e293b;
+            color: #f8fafc;
+            padding: 14px;
+            border-radius: 6px;
+            max-height: 260px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-top: 12px;
+        }
+        th, td {
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: middle;
+        }
+        th { background: #f8fafc; color: #475569; }
+        .badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            color: white;
+            display: inline-block;
+        }
+        .badge-success { background-color: var(--success); }
+        .badge-error { background-color: var(--error); }
+        .badge-pending { background-color: var(--warning); }
+        .badge-info { background-color: #0284c7; }
+        .version-tag {
+            background: #e2e8f0;
+            color: #334155;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 4px;
+        }
+        .link-btn {
+            color: #2563eb;
+            text-decoration: underline;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .vital-pill {
+            display: inline-block;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 2px 8px;
+            margin: 2px 4px 2px 0;
+            font-size: 12px;
+        }
+        .vital-alert {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            color: #b91c1c;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div>
+            <h1>IoT on FHIR: 邊緣轉譯與醫護端資料查詢平台</h1>
+            <p class="subtitle">支援 Edge Gateway 資料標準化上傳 (POST) 與醫護端病患量測調閱管理 (GET / PUT / DELETE)</p>
+        </div>
+        <div>
+            <button class="btn-success" onclick="quickLoadDemoContext()">⚡ 一鍵載入 C 程式測試環境 (Patient/364734)</button>
+        </div>
+    </header>
+
+    <!-- 伺服器全域設定 -->
+    <div class="card">
+        <h2>全域伺服器設定 (FHIR Base URL)</h2>
+        <div class="form-group" style="margin-bottom:0;">
+            <input type="text" id="baseServerUrl" value="https://hapi.fhir.org/baseR4">
+            <small style="color:#64748b;">所有資源 (Organization、Patient、Observation) 均依此端點進行標準 RESTful API 請求</small>
+        </div>
+    </div>
+
+    <!-- 醫護端應用：Observation 查詢與增刪改查 -->
+    <div class="card" style="border-left: 4px solid var(--success);">
+        <h2>
+            <span>醫護端應用：病患歷史量測查詢與管理 (Observation Viewer & CRUD)</span>
+            <span id="viewerBadge" class="badge badge-info">準備就緒</span>
+        </h2>
+        <p style="font-size:13px; color:#64748b; margin-top:-8px; margin-bottom:14px;">
+            醫護人員可依病患 ID 即時調閱 C 語言或網頁端上傳之生理數據，並執行檢視、數值修訂 (PUT) 或刪除 (DELETE)。
+        </p>
+
+        <div class="grid-2" style="align-items: end;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label>查詢目標病患 FHIR ID (預設為 C 程式測試病患 364734)：</label>
+                <input type="text" id="queryPatientIdInput" value="364734" placeholder="輸入 Patient ID，例如 364734">
+            </div>
+            <div class="btn-group" style="margin-top:0;">
+                <button class="btn-success" onclick="queryObservationsByPatient()">🔍 查詢該病患所有量測紀錄 (GET)</button>
+                <button class="btn-outline" onclick="document.getElementById('rawObsViewerBox').style.display='none'">隱藏 JSON 檢視窗</button>
+            </div>
+        </div>
+
+        <!-- 編輯數值面板 (點擊「編輯數值 (PUT)」時顯示) -->
+        <div id="editObsBox" class="edit-panel" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <strong style="color:#b45309; font-size:14px;" id="editObsTitle">✏️ 編輯量測數值 (HTTP PUT)</strong>
+                <span style="font-size:12px; color:#92400e;">提示：修改已確認之數值時，依 FHIR 規範建議將狀態同步設為 amended（已修訂）</span>
+            </div>
+            <div class="grid-3" id="editObsFieldsContainer">
+                <!-- 動態產生心率、收縮壓、舒張壓等數值輸入框 -->
+            </div>
+            <div class="grid-2" style="margin-top:8px;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>資源狀態 (Status)：</label>
+                    <select id="editObsStatusSelect">
+                        <option value="amended">amended (已修訂 - 修改數值後建議)</option>
+                        <option value="corrected">corrected (已更正)</option>
+                        <option value="final">final (最終確認)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>量測時間 (effectiveDateTime)：</label>
+                    <input type="text" id="editObsTimeInput">
+                </div>
+            </div>
+            <div class="btn-group" style="margin-top:12px;">
+                <button class="btn-warning" onclick="saveEditedObservation()">💾 確認修改並送出至伺服器 (PUT)</button>
+                <button class="btn-outline" onclick="closeEditObservation()">取消編輯</button>
+            </div>
+        </div>
+
+        <!-- 單筆 Observation JSON 詳細檢視區 -->
+        <div id="rawObsViewerBox" style="display:none; margin-top:14px;">
+            <div style="font-size:12px; font-weight:bold; color:#475569; margin-bottom:4px;" id="rawObsViewerTitle">FHIR Resource JSON 檢視：</div>
+            <div class="json-viewer" id="rawObsViewerContent"></div>
+        </div>
+
+        <!-- 查詢結果列表 -->
+        <table id="obsViewerTable">
+            <thead>
+                <tr>
+                    <th>Observation ID / 版本</th>
+                    <th>量測時間 (effectiveDateTime)</th>
+                    <th>量測項目 (LOINC)</th>
+                    <th>生理數值明細</th>
+                    <th>狀態</th>
+                    <th>醫護端操作 (CRUD)</th>
+                </tr>
+            </thead>
+            <tbody id="obsViewerBody">
+                <tr>
+                    <td colspan="6" style="text-align:center; color:#64748b; padding:20px;">
+                        請點擊上方「🔍 查詢該病患所有量測紀錄 (GET)」載入雲端資料
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 模組 1: 機構 (Organization) 隔離設計 -->
+    <div class="card">
+        <h2>
+            <span>第一層：專屬機構管理 (Organization)</span>
+            <span id="orgBadge" class="badge badge-error">未選定機構</span>
+        </h2>
+        <div class="status-box">
+            <div>
+                <strong>當前綁定機構 ID：</strong><span id="currentOrgIdText" style="color:#0284c7; font-weight:bold;">無</span>
+                <span style="margin: 0 10px; color:#cbd5e1;">|</span>
+                <strong>機構名稱：</strong><span id="currentOrgNameText">尚未建立或選定</span>
+            </div>
+            <div id="orgDirectLink"></div>
+        </div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label>機構識別代碼 (Identifier):</label>
+                <input type="text" id="orgIdentifier" value="EDGE-GATEWAY-LAB-2026">
+            </div>
+            <div class="form-group">
+                <label>機構名稱 (Name):</label>
+                <input type="text" id="orgName" value="智慧醫療物聯網實驗室 (IoT Edge Lab)">
+            </div>
+        </div>
+        <div class="btn-group">
+            <button onclick="createOrganization()">建立專屬機構 (POST)</button>
+            <button class="btn-outline" onclick="queryOrganization()">查詢/載入既有機構 (GET)</button>
+        </div>
+    </div>
+
+    <!-- 模組 2: 病患 (Patient) 管理 (增刪改選) -->
+    <div class="card">
+        <h2>
+            <span>第二層：病患管理 (Patient CRUD)</span>
+            <span id="patientBadge" class="badge badge-error">未選定病患</span>
+        </h2>
+        
+        <div class="status-box">
+            <div>
+                <strong>已選定病患 FHIR ID：</strong><span id="currentPatientIdText" style="color:#059669; font-weight:bold;">尚未選定</span>
+                <span style="margin: 0 10px; color:#cbd5e1;">|</span>
+                <strong>病患代號 / 姓名：</strong><span id="currentPatientSummary">請從下拉選單選取或直接建立</span>
+            </div>
+            <div id="patientDirectLink"></div>
+        </div>
+
+        <div class="form-group">
+            <label>快速切換已建立之病患：</label>
+            <select id="patientSelect" onchange="onPatientSelectChange()">
+                <option value="">-- 請選擇病患 --</option>
+            </select>
+        </div>
+
+        <div class="grid-3">
+            <div class="form-group">
+                <label>內部病患代號 (Code/Identifier):</label>
+                <input type="text" id="patientCode" value="P1001">
+            </div>
+            <div class="form-group">
+                <label>病患姓名 (Name):</label>
+                <input type="text" id="patientName" value="王大明">
+            </div>
+            <div class="form-group">
+                <label>性別 (Gender):</label>
+                <select id="patientGender">
+                    <option value="male">male (男性)</option>
+                    <option value="female">female (女性)</option>
+                    <option value="other">other (其他)</option>
+                </select>
+            </div>
+        </div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label>出生日期 (BirthDate):</label>
+                <input type="date" id="patientBirthDate" value="1955-08-15">
+            </div>
+            <div class="form-group">
+                <label>所屬機構關聯 (managingOrganization):</label>
+                <input type="text" id="patientManagingOrgDisplay" readonly style="background:#f1f5f9;" value="請先建立機構">
+            </div>
+        </div>
+
+        <div class="btn-group">
+            <button onclick="createPatient()">建立新病患 (POST)</button>
+            <button class="btn-warning" id="updatePatientBtn" onclick="updatePatient()" disabled>修改當前病患 (PUT)</button>
+            <button class="btn-outline" onclick="loadPatientsFromOrg()">依當前機構載入病患清單 (GET)</button>
+        </div>
+    </div>
+
+    <!-- 模組 3: CSV 轉譯 Observation 並精確指向選定 Patient -->
+    <div class="card">
+        <h2>第三層：網頁端 CSV 生理量測轉 FHIR Observation (模擬 Gateway 上傳)</h2>
+        
+        <div class="form-group">
+            <label>上傳 CSV 檔案：</label>
+            <input type="file" id="csvFileInput" accept=".csv">
+        </div>
+
+        <div class="form-group">
+            <label>或直接編輯 CSV 內容 (首欄 PatientID 將自動映射或綁定至選定之真實 FHIR Patient)：</label>
+            <textarea id="csvTextInput">PatientID,Timestamp,HeartRate,SystolicBP,DiastolicBP
+P1001,2026-10-28T08:30:00Z,72,125,82
+P1001,2026-10-28T12:15:00Z,80,132,85
+P1001,2026-10-28T18:45:00Z,75,122,80</textarea>
+        </div>
+
+        <div class="btn-group">
+            <button onclick="parseAndConvertCsv()">解析 CSV 並生成 Observation JSON</button>
+        </div>
+    </div>
+
+    <!-- 模組 4: 預覽與上傳 -->
+    <div class="card" id="previewCard" style="display:none;">
+        <h2>Observation 結構預覽 (檢視 subject.reference 關聯)</h2>
+        <div class="json-viewer" id="jsonPreview"></div>
+        <div class="btn-group" style="margin-top:14px;">
+            <button class="btn-success" id="uploadBtn" onclick="uploadAllObservations()">透過 HTTP POST 上傳至 FHIR 伺服器</button>
+        </div>
+    </div>
+
+    <!-- 模組 4-2: 上傳結果日誌 -->
+    <div class="card" id="resultCard" style="display:none;">
+        <h2>批次上傳結果日誌</h2>
+        <table id="logTable">
+            <thead>
+                <tr>
+                    <th>筆數</th>
+                    <th>關聯病患 (subject)</th>
+                    <th>量測時間</th>
+                    <th>HTTP 狀態</th>
+                    <th>指派 Observation ID</th>
+                    <th>伺服器即時驗證 / 直達連結</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // 全域狀態儲存
+    let currentOrg = null;
+    let currentPatient = null;
+    let patientList = [];
+    let convertedObservations = [];
+    let fetchedObservationsMap = {}; // 暫存查詢到的 Observation 完整 JSON
+    let editingObsId = null;         // 當前正在編輯的 Observation ID
+
+    function getBaseUrl() {
+        return document.getElementById('baseServerUrl').value.trim().replace(/\/+$/, "");
+    }
+
+    /* ==========================================================================
+       快捷功能：一鍵載入現有測試環境 (Organization/364732 & Patient/364734)
+       ========================================================================== */
+    async function quickLoadDemoContext() {
+        const baseUrl = getBaseUrl();
+        try {
+            const orgResp = await fetch(`${baseUrl}/Organization/364732`, { headers: { 'Accept': 'application/fhir+json' } });
+            if (orgResp.ok) {
+                const orgData = await orgResp.json();
+                currentOrg = {
+                    id: orgData.id,
+                    name: orgData.name || "智慧醫療物聯網實驗室",
+                    identifier: orgData.identifier?.[0]?.value || "EDGE-GATEWAY-LAB-2026"
+                };
+                updateOrgUI();
+            }
+
+            const patResp = await fetch(`${baseUrl}/Patient/364734`, { headers: { 'Accept': 'application/fhir+json' } });
+            if (patResp.ok) {
+                const patData = await patResp.json();
+                const demoPat = {
+                    id: patData.id,
+                    code: patData.identifier?.[0]?.value || "P1001",
+                    name: patData.name?.[0]?.text || "王大明",
+                    gender: patData.gender || "male",
+                    birthDate: patData.birthDate || "1955-08-15"
+                };
+                patientList = [demoPat];
+                currentPatient = demoPat;
+                refreshPatientDropdown();
+                updatePatientUI();
+                document.getElementById('queryPatientIdInput').value = patData.id;
+            }
+
+            await queryObservationsByPatient();
+        } catch (err) {
+            alert(`載入預設環境時發生錯誤: ${err.message}`);
+        }
+    }
+
+    /* ==========================================================================
+       醫護端應用：Observation 查詢與增刪改查 (GET / PUT 數值修改 / DELETE)
+       ========================================================================== */
+    async function queryObservationsByPatient() {
+        const baseUrl = getBaseUrl();
+        const pid = document.getElementById('queryPatientIdInput').value.trim();
+        if (!pid) {
+            alert("請輸入欲查詢的 Patient ID！");
+            return;
+        }
+
+        const badge = document.getElementById('viewerBadge');
+        const tbody = document.getElementById('obsViewerBody');
+        badge.className = 'badge badge-pending';
+        badge.textContent = '查詢中...';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:16px;">正在向 FHIR 伺服器請求數據...</td></tr>';
+
+        try {
+            const url = `${baseUrl}/Observation?subject=Patient/${encodeURIComponent(pid)}&_count=50`;
+            const resp = await fetch(url, {
+                headers: { 'Accept': 'application/fhir+json' }
+            });
+
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const bundle = await resp.json();
+
+            fetchedObservationsMap = {};
+            tbody.innerHTML = '';
+
+            if (!bundle.entry || bundle.entry.length === 0) {
+                badge.className = 'badge badge-warning';
+                badge.textContent = '無資料';
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#64748b; padding:20px;">伺服器上查無 Patient/${pid} 的 Observation 紀錄</td></tr>`;
+                return;
+            }
+
+            const entries = bundle.entry.map(e => e.resource).sort((a, b) => {
+                const tA = a.meta?.lastUpdated || a.effectiveDateTime || "";
+                const tB = b.meta?.lastUpdated || b.effectiveDateTime || "";
+                return tB.localeCompare(tA);
+            });
+
+            badge.className = 'badge badge-success';
+            badge.textContent = `共載入 ${entries.length} 筆紀錄`;
+
+            entries.forEach(obs => {
+                fetchedObservationsMap[obs.id] = obs;
+                const obsId = obs.id;
+                const versionId = obs.meta?.versionId || "1";
+                const effTime = obs.effectiveDateTime || "未標記時間";
+                const codeObj = obs.code?.coding?.[0] || {};
+                const codeDisplay = `${codeObj.code || "N/A"} (${codeObj.display || "Observation"})`;
+                const status = obs.status || "unknown";
+
+                let valuesHtml = "";
+                if (Array.isArray(obs.component) && obs.component.length > 0) {
+                    obs.component.forEach(comp => {
+                        const cCode = comp.code?.coding?.[0]?.code || "";
+                        const cName = comp.code?.coding?.[0]?.display || cCode;
+                        const val = comp.valueQuantity?.value;
+                        const unit = comp.valueQuantity?.unit || comp.valueQuantity?.code || "";
+                        
+                        let isAlert = false;
+                        if (cCode === "8480-6" && val >= 130) isAlert = true;
+                        if (cCode === "8462-4" && val >= 85) isAlert = true;
+
+                        valuesHtml += `<span class="vital-pill ${isAlert ? 'vital-alert' : ''}">${cName}: <strong>${val}</strong> ${unit}</span>`;
+                    });
+                } else if (obs.valueQuantity) {
+                    const val = obs.valueQuantity.value;
+                    const unit = obs.valueQuantity.unit || obs.valueQuantity.code || "";
+                    valuesHtml = `<span class="vital-pill"><strong>${val}</strong> ${unit}</span>`;
+                } else {
+                    valuesHtml = `<span style="color:#94a3b8;">無數值欄位</span>`;
+                }
+
+                const directUrl = `${baseUrl}/Observation/${obsId}`;
+                const statusBadgeClass = status === 'final' ? 'badge-success' : 'badge-pending';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>
+                        <strong>${obsId}</strong><span class="version-tag">v${versionId}</span><br>
+                        <a class="link-btn" style="font-size:11px;" href="${directUrl}" target="_blank">↗ 原始端點</a>
+                    </td>
+                    <td>${effTime}</td>
+                    <td style="font-size:12px;">${codeDisplay}</td>
+                    <td>${valuesHtml}</td>
+                    <td><span class="badge ${statusBadgeClass}">${status}</span></td>
+                    <td>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                            <button class="btn-outline btn-sm" onclick="inspectObservationJson('${obsId}')">檢視 JSON</button>
+                            <button class="btn-warning btn-sm" onclick="openEditObservation('${obsId}')">✏️ 編輯數值 (PUT)</button>
+                            <button class="btn-danger btn-sm" onclick="deleteObservation('${obsId}')">刪除 (DELETE)</button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+        } catch (err) {
+            badge.className = 'badge badge-error';
+            badge.textContent = '查詢失敗';
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#d32f2f; padding:16px;">查詢失敗: ${err.message}</td></tr>`;
+        }
+    }
+
+    function inspectObservationJson(obsId) {
+        const obs = fetchedObservationsMap[obsId];
+        if (!obs) return;
+        const box = document.getElementById('rawObsViewerBox');
+        document.getElementById('rawObsViewerTitle').textContent = `FHIR Resource JSON 檢視：Observation/${obsId} (版本 v${obs.meta?.versionId || 1})`;
+        document.getElementById('rawObsViewerContent').textContent = JSON.stringify(obs, null, 2);
+        box.style.display = 'block';
+        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // 開啟數值編輯面板
+    function openEditObservation(obsId) {
+        const obs = fetchedObservationsMap[obsId];
+        if (!obs) return;
+
+        editingObsId = obsId;
+        const editBox = document.getElementById('editObsBox');
+        const fieldsContainer = document.getElementById('editObsFieldsContainer');
+        document.getElementById('editObsTitle').textContent = `✏️ 編輯量測數值：Observation/${obsId} (目前版本 v${obs.meta?.versionId || 1})`;
+        document.getElementById('editObsTimeInput').value = obs.effectiveDateTime || "";
+        
+        // 若原本是 final，預設改為 amended 符合醫療稽核規範
+        document.getElementById('editObsStatusSelect').value = (obs.status === 'final') ? 'amended' : obs.status;
+
+        fieldsContainer.innerHTML = '';
+
+        if (Array.isArray(obs.component) && obs.component.length > 0) {
+            obs.component.forEach((comp, idx) => {
+                const labelText = comp.code?.coding?.[0]?.display || `項目 #${idx + 1}`;
+                const unitText = comp.valueQuantity?.unit || comp.valueQuantity?.code || "";
+                const currentVal = comp.valueQuantity?.value ?? "";
+
+                const div = document.createElement('div');
+                div.className = 'form-group';
+                div.style.marginBottom = '0';
+                div.innerHTML = `
+                    <label>${labelText} (${unitText})：</label>
+                    <input type="number" step="any" data-comp-idx="${idx}" value="${currentVal}">
+                `;
+                fieldsContainer.appendChild(div);
+            });
+        } else if (obs.valueQuantity) {
+            const labelText = obs.code?.coding?.[0]?.display || "量測數值";
+            const unitText = obs.valueQuantity.unit || obs.valueQuantity.code || "";
+            const currentVal = obs.valueQuantity.value ?? "";
+
+            const div = document.createElement('div');
+            div.className = 'form-group';
+            div.style.marginBottom = '0';
+            div.innerHTML = `
+                <label>${labelText} (${unitText})：</label>
+                <input type="number" step="any" id="editSingleValueInput" value="${currentVal}">
+            `;
+            fieldsContainer.appendChild(div);
+        } else {
+            fieldsContainer.innerHTML = '<div style="color:#64748b; font-size:13px;">此筆資料無可編輯之數值欄位</div>';
+        }
+
+        editBox.style.display = 'block';
+        editBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function closeEditObservation() {
+        editingObsId = null;
+        document.getElementById('editObsBox').style.display = 'none';
+    }
+
+    // 送出修改後的數值 (HTTP PUT)
+    async function saveEditedObservation() {
+        if (!editingObsId || !fetchedObservationsMap[editingObsId]) return;
+        const baseUrl = getBaseUrl();
+
+        const updatedObs = JSON.parse(JSON.stringify(fetchedObservationsMap[editingObsId]));
+        updatedObs.status = document.getElementById('editObsStatusSelect').value;
+        updatedObs.effectiveDateTime = document.getElementById('editObsTimeInput').value.trim();
+
+        // 讀取所有 component 數值輸入框
+        const compInputs = document.querySelectorAll('#editObsFieldsContainer input[data-comp-idx]');
+        if (compInputs.length > 0) {
+            for (const input of compInputs) {
+                const idx = parseInt(input.getAttribute('data-comp-idx'), 10);
+                const numVal = parseFloat(input.value);
+                if (isNaN(numVal)) {
+                    alert("請輸入有效的數字！");
+                    return;
+                }
+                if (updatedObs.component[idx] && updatedObs.component[idx].valueQuantity) {
+                    updatedObs.component[idx].valueQuantity.value = numVal;
+                }
+            }
+        } else {
+            const singleInput = document.getElementById('editSingleValueInput');
+            if (singleInput && updatedObs.valueQuantity) {
+                const numVal = parseFloat(singleInput.value);
+                if (isNaN(numVal)) {
+                    alert("請輸入有效的數字！");
+                    return;
+                }
+                updatedObs.valueQuantity.value = numVal;
+            }
+        }
+
+        try {
+            const resp = await fetch(`${baseUrl}/Observation/${editingObsId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/fhir+json' },
+                body: JSON.stringify(updatedObs)
+            });
+
+            const resData = await resp.json();
+            if (!resp.ok) {
+                const errMsg = resData.issue?.[0]?.diagnostics || `HTTP ${resp.status}`;
+                throw new Error(errMsg);
+            }
+
+            const newVersion = resData.meta?.versionId || "2";
+            alert(`數值修改成功 (HTTP 200 OK)！\n\n✔ 資源 ID：Observation/${editingObsId}\n✔ 伺服器版本自動升級：v${newVersion}\n✔ 狀態更新為：${resData.status}`);
+            closeEditObservation();
+            await queryObservationsByPatient();
+        } catch (err) {
+            alert(`修改失敗: ${err.message}`);
+        }
+    }
+
+    async function deleteObservation(obsId) {
+        const baseUrl = getBaseUrl();
+        if (!confirm(`確定要從伺服器刪除 Observation/${obsId} (DELETE) 嗎？此操作無法復原。`)) {
+            return;
+        }
+
+        try {
+            const resp = await fetch(`${baseUrl}/Observation/${obsId}`, {
+                method: 'DELETE'
+            });
+
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            alert(`已成功刪除 Observation/${obsId}！`);
+            if (editingObsId === obsId) closeEditObservation();
+            await queryObservationsByPatient();
+        } catch (err) {
+            alert(`刪除失敗: ${err.message}`);
+        }
+    }
+
+    /* ==========================================================================
+       第一層：Organization (機構) 管理
+       ========================================================================== */
+    async function createOrganization() {
+        const baseUrl = getBaseUrl();
+        const identifier = document.getElementById('orgIdentifier').value.trim();
+        const name = document.getElementById('orgName').value.trim();
+
+        if (!identifier || !name) {
+            alert("請填寫機構識別碼與名稱！");
+            return;
+        }
+
+        const orgPayload = {
+            "resourceType": "Organization",
+            "identifier": [{
+                "system": "https://hospital.iot-gateway.org/org-ids",
+                "value": identifier
+            }],
+            "name": name
+        };
+
+        try {
+            const resp = await fetch(`${baseUrl}/Organization`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/fhir+json' },
+                body: JSON.stringify(orgPayload)
+            });
+
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+
+            currentOrg = { id: data.id, name: name, identifier: identifier };
+            updateOrgUI();
+            alert(`專屬機構建立成功！指派 ID: ${data.id}`);
+        } catch (err) {
+            alert(`建立機構失敗: ${err.message}`);
+        }
+    }
+
+    async function queryOrganization() {
+        const baseUrl = getBaseUrl();
+        const identifier = document.getElementById('orgIdentifier').value.trim();
+
+        try {
+            const resp = await fetch(`${baseUrl}/Organization?identifier=${encodeURIComponent(identifier)}`, {
+                headers: { 'Accept': 'application/fhir+json' }
+            });
+            const data = await resp.json();
+
+            if (data.total > 0 && data.entry && data.entry.length > 0) {
+                const orgRes = data.entry[0].resource;
+                currentOrg = { id: orgRes.id, name: orgRes.name, identifier: identifier };
+                updateOrgUI();
+                alert(`成功載入既有機構！ID: ${orgRes.id}`);
+            } else {
+                alert("未找到此代碼的機構，請直接點選「建立專屬機構」！");
+            }
+        } catch (err) {
+            alert(`查詢機構失敗: ${err.message}`);
+        }
+    }
+
+    function updateOrgUI() {
+        if (currentOrg) {
+            document.getElementById('orgBadge').className = 'badge badge-success';
+            document.getElementById('orgBadge').textContent = '已綁定專屬機構';
+            document.getElementById('currentOrgIdText').textContent = currentOrg.id;
+            document.getElementById('currentOrgNameText').textContent = currentOrg.name;
+            document.getElementById('patientManagingOrgDisplay').value = `Organization/${currentOrg.id} (${currentOrg.name})`;
+            
+            const directUrl = `${getBaseUrl()}/Organization/${currentOrg.id}`;
+            document.getElementById('orgDirectLink').innerHTML = `<a class="link-btn" href="${directUrl}" target="_blank">↗ 開啟機構端點 JSON</a>`;
+        }
+    }
+
+    /* ==========================================================================
+       第二層：Patient (病患) 管理 (CRUD)
+       ========================================================================== */
+    async function createPatient() {
+        const baseUrl = getBaseUrl();
+        if (!currentOrg) {
+            alert("請先於第一層建立或選定專屬機構，以落實資料隔離！");
+            return;
+        }
+
+        const code = document.getElementById('patientCode').value.trim();
+        const name = document.getElementById('patientName').value.trim();
+        const gender = document.getElementById('patientGender').value;
+        const birthDate = document.getElementById('patientBirthDate').value;
+
+        const patientPayload = {
+            "resourceType": "Patient",
+            "identifier": [{
+                "system": "https://hospital.iot-gateway.org/patient-codes",
+                "value": code
+            }],
+            "name": [{ "use": "official", "text": name }],
+            "gender": gender,
+            "birthDate": birthDate,
+            "managingOrganization": {
+                "reference": `Organization/${currentOrg.id}`,
+                "display": currentOrg.name
+            }
+        };
+
+        try {
+            const resp = await fetch(`${baseUrl}/Patient`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/fhir+json' },
+                body: JSON.stringify(patientPayload)
+            });
+
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+
+            const newPatient = { id: data.id, code: code, name: name, gender: gender, birthDate: birthDate };
+            patientList.push(newPatient);
+            currentPatient = newPatient;
+
+            refreshPatientDropdown();
+            updatePatientUI();
+            alert(`病患建立成功！指派 FHIR ID: ${data.id}`);
+        } catch (err) {
+            alert(`建立病患失敗: ${err.message}`);
+        }
+    }
+
+    async function updatePatient() {
+        if (!currentPatient) return;
+        const baseUrl = getBaseUrl();
+
+        const code = document.getElementById('patientCode').value.trim();
+        const name = document.getElementById('patientName').value.trim();
+        const gender = document.getElementById('patientGender').value;
+        const birthDate = document.getElementById('patientBirthDate').value;
+
+        const updatePayload = {
+            "resourceType": "Patient",
+            "id": currentPatient.id,
+            "identifier": [{
+                "system": "https://hospital.iot-gateway.org/patient-codes",
+                "value": code
+            }],
+            "name": [{ "use": "official", "text": name }],
+            "gender": gender,
+            "birthDate": birthDate,
+            "managingOrganization": {
+                "reference": `Organization/${currentOrg.id}`,
+                "display": currentOrg.name
+            }
+        };
+
+        try {
+            const resp = await fetch(`${baseUrl}/Patient/${currentPatient.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/fhir+json' },
+                body: JSON.stringify(updatePayload)
+            });
+
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+            currentPatient.code = code;
+            currentPatient.name = name;
+            currentPatient.gender = gender;
+            currentPatient.birthDate = birthDate;
+
+            refreshPatientDropdown();
+            updatePatientUI();
+            alert(`病患 ID: ${currentPatient.id} 資料更新成功 (PUT)！`);
+        } catch (err) {
+            alert(`更新病患失敗: ${err.message}`);
+        }
+    }
+
+    async function loadPatientsFromOrg() {
+        if (!currentOrg) {
+            alert("請先選定機構！");
+            return;
+        }
+        const baseUrl = getBaseUrl();
+
+        try {
+            const resp = await fetch(`${baseUrl}/Patient?organization=Organization/${currentOrg.id}`, {
+                headers: { 'Accept': 'application/fhir+json' }
+            });
+            const data = await resp.json();
+
+            patientList = [];
+            if (data.total > 0 && data.entry) {
+                data.entry.forEach(e => {
+                    const r = e.resource;
+                    const code = (r.identifier && r.identifier[0]) ? r.identifier[0].value : r.id;
+                    const name = (r.name && r.name[0]) ? r.name[0].text : "未具名";
+                    patientList.push({
+                        id: r.id,
+                        code: code,
+                        name: name,
+                        gender: r.gender || "unknown",
+                        birthDate: r.birthDate || ""
+                    });
+                });
+                if (patientList.length > 0) currentPatient = patientList[0];
+                refreshPatientDropdown();
+                updatePatientUI();
+                alert(`已依機構載入 ${patientList.length} 位病患！`);
+            } else {
+                alert("該機構下目前尚無登記病患！");
+            }
+        } catch (err) {
+            alert(`載入病患清單失敗: ${err.message}`);
+        }
+    }
+
+    function refreshPatientDropdown() {
+        const select = document.getElementById('patientSelect');
+        select.innerHTML = '<option value="">-- 請選擇病患 --</option>';
+        patientList.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = `[${p.code}] ${p.name} (ID: ${p.id})`;
+            if (currentPatient && currentPatient.id === p.id) opt.selected = true;
+            select.appendChild(opt);
+        });
+    }
+
+    function onPatientSelectChange() {
+        const selectedId = document.getElementById('patientSelect').value;
+        const found = patientList.find(p => p.id === selectedId);
+        if (found) {
+            currentPatient = found;
+            document.getElementById('patientCode').value = found.code;
+            document.getElementById('patientName').value = found.name;
+            document.getElementById('patientGender').value = found.gender;
+            document.getElementById('patientBirthDate').value = found.birthDate;
+            updatePatientUI();
+        }
+    }
+
+    function updatePatientUI() {
+        if (currentPatient) {
+            document.getElementById('patientBadge').className = 'badge badge-success';
+            document.getElementById('patientBadge').textContent = '已選定病患';
+            document.getElementById('currentPatientIdText').textContent = `Patient/${currentPatient.id}`;
+            document.getElementById('currentPatientSummary').textContent = `${currentPatient.name} (內部代碼: ${currentPatient.code})`;
+            document.getElementById('updatePatientBtn').disabled = false;
+            document.getElementById('queryPatientIdInput').value = currentPatient.id;
+
+            const directUrl = `${getBaseUrl()}/Patient/${currentPatient.id}`;
+            document.getElementById('patientDirectLink').innerHTML = `<a class="link-btn" href="${directUrl}" target="_blank">↗ 開啟病患端點 JSON</a>`;
+        }
+    }
+
+    /* ==========================================================================
+       第三層：CSV 解析與 Observation 關聯綁定
+       ========================================================================== */
+    document.getElementById('csvFileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            document.getElementById('csvTextInput').value = evt.target.result;
+        };
+        reader.readAsText(file);
+    });
+
+    function parseAndConvertCsv() {
+        if (!currentPatient) {
+            alert("請先建立或選定病患（或點擊右上角「一鍵載入 C 程式測試環境」）！");
+            return;
+        }
+
+        const text = document.getElementById('csvTextInput').value.trim();
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        if (lines.length < 2) {
+            alert("CSV 內容無有效數據！");
+            return;
+        }
+
+        convertedObservations = [];
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',').map(c => c.trim());
+            if (cols.length >= 5) {
+                const csvPatientCode = cols[0];
+                const timestamp = cols[1];
+                const hr = cols[2];
+                const sbp = cols[3];
+                const dbp = cols[4];
+
+                const observationJson = {
+                    "resourceType": "Observation",
+                    "status": "final",
+                    "category": [{
+                        "coding": [{
+                            "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                            "code": "vital-signs",
+                            "display": "Vital Signs"
+                        }]
+                    }],
+                    "code": {
+                        "coding": [{
+                            "system": "http://loinc.org",
+                            "code": "85354-9",
+                            "display": "Blood pressure panel with all children optional"
+                        }]
+                    },
+                    "subject": {
+                        "reference": `Patient/${currentPatient.id}`,
+                        "display": `${currentPatient.name} (${csvPatientCode})`
+                    },
+                    "effectiveDateTime": timestamp,
+                    "component": [
+                        {
+                            "code": { "coding": [{ "system": "http://loinc.org", "code": "8867-4", "display": "Heart rate" }] },
+                            "valueQuantity": { "value": parseFloat(hr), "unit": "beats/minute", "system": "http://unitsofmeasure.org", "code": "/min" }
+                        },
+                        {
+                            "code": { "coding": [{ "system": "http://loinc.org", "code": "8480-6", "display": "Systolic blood pressure" }] },
+                            "valueQuantity": { "value": parseFloat(sbp), "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]" }
+                        },
+                        {
+                            "code": { "coding": [{ "system": "http://loinc.org", "code": "8462-4", "display": "Diastolic blood pressure" }] },
+                            "valueQuantity": { "value": parseFloat(dbp), "unit": "mmHg", "system": "http://unitsofmeasure.org", "code": "mm[Hg]" }
+                        }
+                    ]
+                };
+
+                convertedObservations.push({
+                    patientDisplay: `${currentPatient.name} (Patient/${currentPatient.id})`,
+                    timestamp: timestamp,
+                    json: observationJson
+                });
+            }
+        }
+
+        document.getElementById('previewCard').style.display = 'block';
+        document.getElementById('jsonPreview').textContent = JSON.stringify(convertedObservations[0].json, null, 2);
+    }
+
+    /* ==========================================================================
+       第四層：Observation HTTP 上傳與線上即時驗證導向
+       ========================================================================== */
+    async function uploadAllObservations() {
+        const baseUrl = getBaseUrl();
+        const uploadBtn = document.getElementById('uploadBtn');
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = "上傳中...";
+
+        document.getElementById('resultCard').style.display = 'block';
+        const tbody = document.querySelector('#logTable tbody');
+        tbody.innerHTML = '';
+
+        for (let i = 0; i < convertedObservations.length; i++) {
+            const item = convertedObservations[i];
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>#${i + 1}</td>
+                <td>${item.patientDisplay}</td>
+                <td>${item.timestamp}</td>
+                <td><span class="badge badge-pending">發送中...</span></td>
+                <td>處理中...</td>
+                <td>-</td>
+            `;
+            tbody.appendChild(row);
+
+            try {
+                const resp = await fetch(`${baseUrl}/Observation`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/fhir+json' },
+                    body: JSON.stringify(item.json)
+                });
+
+                const data = await resp.json();
+                if (resp.ok) {
+                    const obsId = data.id;
+                    const directUrl = `${baseUrl}/Observation/${obsId}`;
+                    row.cells[3].innerHTML = `<span class="badge badge-success">HTTP 201 Created</span>`;
+                    row.cells[4].innerHTML = `<strong>Observation/${obsId}</strong>`;
+                    row.cells[5].innerHTML = `
+                        <a class="link-btn" href="${directUrl}" target="_blank">↗ 直達伺服器原始端點</a>
+                        <button class="btn-outline btn-sm" style="margin-left:8px;" onclick="verifyObservationOnServer('${obsId}')">即時讀取驗證</button>
+                    `;
+                } else {
+                    row.cells[3].innerHTML = `<span class="badge badge-error">HTTP ${resp.status}</span>`;
+                    row.cells[4].textContent = data.issue ? data.issue[0].diagnostics : "格式驗證失敗";
+                }
+            } catch (err) {
+                row.cells[3].innerHTML = `<span class="badge badge-error">連線失敗</span>`;
+                row.cells[4].textContent = err.message;
+            }
+        }
+
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = "透過 HTTP POST 上傳至 FHIR 伺服器";
+        await queryObservationsByPatient();
+    }
+
+    async function verifyObservationOnServer(obsId) {
+        const baseUrl = getBaseUrl();
+        try {
+            const resp = await fetch(`${baseUrl}/Observation/${obsId}`, {
+                headers: { 'Accept': 'application/fhir+json' }
+            });
+            const data = await resp.json();
+            alert(`【伺服器即時驗證成功 - GET /Observation/${obsId}】\n\n` +
+                  `✔ 資源狀態: ${data.status}\n` +
+                  `✔ 關聯病患: ${data.subject.reference} (${data.subject.display})\n` +
+                  `✔ 量測項目代碼: ${data.code.coding[0].code} (${data.code.coding[0].display})\n` +
+                  `✔ 收縮壓: ${data.component[1].valueQuantity.value} mmHg\n` +
+                  `✔ 舒張壓: ${data.component[2].valueQuantity.value} mmHg\n` +
+                  `✔ 心率: ${data.component[0].valueQuantity.value} bpm\n\n已確認完整寫入 HAPI-FHIR 伺服器資料庫！`);
+        } catch (e) {
+            alert(`讀取驗證失敗: ${e.message}`);
+        }
+    }
+</script>
+
+</body>
+</html>
