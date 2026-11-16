@@ -1,6 +1,4 @@
-已將新增的醫護端查詢網頁（`index.html`）操作流程整合進去，並修正原本複製貼上時多餘的空行與網址格式，直接整段複製貼進 HackMD 即可正常排版：
 
-```markdown
 # IoT on FHIR 轉檔上傳與醫護查詢系統操作說明書 (Quick Start)
 
 * **核心程式**：`main.c`（邊緣端 CSV 轉譯與 HTTP 上傳）、`index.html`（醫護端查詢與管理網頁）
